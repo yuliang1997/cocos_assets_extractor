@@ -1,3 +1,3 @@
 # cocos_assets_extractor
 
-npx ts-node ./src/index.ts "your-bundle-path"
+npx ts-node ./src/index.ts "root of cocos webbuild"

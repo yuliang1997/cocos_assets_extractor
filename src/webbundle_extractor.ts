@@ -76,6 +76,7 @@ function writeJson(outBase: string, fileName: string, data: any) {
 }
 
 export function extract(input: string) {
+  input = fixPath(input)
   console.log(`input:${input}`)
   const settingsPath = findFile(input, "settings", "json", true)
   const settingsJson = JSON.parse(
@@ -83,7 +84,7 @@ export function extract(input: string) {
   )
 
   function getBundleRoot(bundleName: string) {
-    return path.join(input, `assets/${bundleName}`)
+    return input + `/assets/${bundleName}`
   }
 
   const bundleNames = settingsJson.assets.projectBundles
@@ -98,7 +99,7 @@ export function extract(input: string) {
       fs.readFileSync(configPath!, { encoding: "utf-8" })
     ) as IConfigOption
     processOptions(configJson)
-    const outBase = path.join(input, `/assets/out_${bundleName}`)
+    const outBase = input + `/assets/out_${bundleName}`
     writeJson(outBase, "config.out", configJson)
     for (const packId in configJson.packs) {
       const packIds = configJson.packs[packId]
@@ -116,6 +117,8 @@ export function extract(input: string) {
       // const unpackedPackJson = decodePack(packJson)
       for (let packIdx = 0; packIdx < packIds.length; packIdx++) {
         const uuid = packIds[packIdx]
+        const pureUuid = uuid.split("@")[0]
+
         const entry = configJson.paths[uuid]
         if (!entry) {
           // todo atlas?
@@ -123,6 +126,9 @@ export function extract(input: string) {
         }
         const assetPath = entry[0]
         const type = entry[1]
+        if (type != "cc.BitmapFont") {
+          continue
+        }
         switch (type) {
           case "sp.SkeletonData": {
             const isNative = configJson.versions.native.includes(uuid)
@@ -168,10 +174,16 @@ export function extract(input: string) {
               )!
               const srcTexExt = path.extname(srcTexPath)
               const tarTexPath = path.dirname(tarBasePath) + `/${texName}`
+              ensureFileNameExists(tarTexPath)
               if (srcTexExt.toLowerCase() !== texExt.toLowerCase()) {
                 webp.dwebp(srcTexPath, tarTexPath, "-o")
               } else {
-                fs.cpSync(srcTexPath, tarTexPath)
+                try {
+                  fs.cpSync(srcTexPath, tarTexPath)
+                } catch (err) {
+                  console.error(err)
+                  console.log(`cptex err, src:${srcTexPath}, tar:${tarTexPath}`)
+                }
               }
             }
             break
@@ -181,7 +193,6 @@ export function extract(input: string) {
             const sprite = section[0][0]
             const ref = section[5][0]
             const uuid = decodeUuid(sharedUuids[ref])
-            const pureUuid = uuid.split("@")[0]
             const isNative = configJson.versions.native.includes(pureUuid)
             const redirectIdx = configJson.redirect.indexOf(uuid)
             let atlasPath: string | undefined
@@ -253,6 +264,48 @@ export function extract(input: string) {
                 )},atlas:${atlasPath}, tar:${tarPath}`
               )
             })
+            break
+          }
+          case "cc.AudioClip": {
+            const isNative = configJson.versions.native.includes(uuid)
+            assert(isNative)
+            const section = sections[packIdx]
+            const ext = section[0][0][2]
+            const srcPath = findFile(
+              `${bundleRoot}/native/`,
+              pureUuid,
+              "*",
+              true
+            )
+            const tarPath = `${outBase}/${assetPath}${ext}`
+            ensureFileNameExists(tarPath)
+            fs.cpSync(srcPath!, tarPath)
+            break
+          }
+          case "cc.BitmapFont": {
+            const section = sections[packIdx]
+            const name = section[0][0][1]
+            const data = section[0][0][3]
+            const fntContent: string[] = []
+            fntContent.push(
+              `info face="${name}" size=${data.fontSize} bold=0 italic=0 charset="" unicode=1 stretchH=100 smooth=1 aa=1 padding=1,1,1,1 spacing=1,1`
+            )
+            fntContent.push(
+              `common lineHeight=${data.commonHeight} base=${data.fontSize} scaleW=93 scaleH=94 pages=1 packed=0`
+            )
+            fntContent.push(`page id=0 file="${data.atlasName}"`)
+            const chars: string[] = []
+            for (const cid in data.fontDefDictionary) {
+              const c = data.fontDefDictionary[cid]
+              chars.push(
+                `char id=${cid} x=${c.rect.x} y=${c.rect.y} width=${c.rect.width} height=${c.rect.height} xoffset=${c.xOffset} yoffset=${c.yOffset} xadvance=${c.xAdvance} page=0 chnl=15`
+              )
+            }
+            fntContent.push(`chars count=${chars.length}`)
+            fntContent.push(chars.join("\n"))
+            const tarPath = `${outBase}/${assetPath}.fnt`
+            ensureFileNameExists(tarPath)
+            fs.writeFileSync(tarPath, fntContent.join("\n"), "utf-8")
             break
           }
           default:
