@@ -1,3 +1,5 @@
 # cocos_assets_extractor
 
-npx ts-node ./src/index.ts "root of cocos webbuild"
+1.  npx ts-node ./src/index.ts root "root of cocos webbuild"
+
+2.  npx ts-node ./src/index.ts bundle "root of cocos bundle"
