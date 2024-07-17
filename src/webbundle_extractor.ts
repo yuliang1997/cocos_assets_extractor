@@ -171,21 +171,33 @@ export function extract_bundle(
           const section = sections[packIdx]
           const sprite = section[0][0]
           const ref = section[5][0]
-          const uuid = decodeUuid(sharedUuids[ref])
-          const isNative = configJson.versions.native.includes(pureUuid)
-          const redirectIdx = configJson.redirect.indexOf(uuid)
+          const atlasUuid = decodeUuid(sharedUuids[ref])
+          const atlasPureUuid = atlasUuid.split("@")[0]
+          const isNative = configJson.versions.native.includes(atlasPureUuid)
+          const redirectIdx = configJson.redirect.indexOf(atlasUuid)
+
           let atlasPath: string | undefined
           if (redirectIdx >= 0 && getBundleRoot) {
             const redirectBundle = configJson.redirect[redirectIdx + 1]
             const rb = getBundleRoot(redirectBundle)
-            atlasPath = findFile(`${rb}/native/`, pureUuid, "*", true)
+            atlasPath = findFile(`${rb}/native/`, atlasPureUuid, "*", true)
+            console.log(
+              `redirect to bundle ${redirectBundle}, sprite:${assetPath}, atlas:${atlasPath}`
+            )
           } else if (!isNative) {
             continue
           } else {
-            atlasPath = findFile(`${bundleRoot}/native/`, pureUuid, "*", true)
+            atlasPath = findFile(
+              `${bundleRoot}/native/`,
+              atlasPureUuid,
+              "*",
+              true
+            )
           }
           const tarPath = path.dirname(`${outBase}/${assetPath}`) + ".png"
-          // console.log(`atlasPath:${atlasPath}, tarPath:${tarPath}`)
+          // console.log(
+          //   `handle sprite:${assetPath}, atlas uuid:${atlasUuid}, isNative:${isNative}, redirect:${redirectIdx}, atlasPath:${atlasPath}, tarPath:${tarPath}`
+          // )
           if (atlasPath == undefined) {
             console.error(`atlas not found!, uuid:${uuid}`)
             continue
