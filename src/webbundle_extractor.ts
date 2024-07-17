@@ -70,7 +70,7 @@ const enum File {
 function writeJson(outBase: string, fileName: string, data: any) {
   const outConfigPath = outBase + `/${fileName}.json`
   ensureFileNameExists(outConfigPath)
-  fs.writeFileSync(outConfigPath, JSON.stringify(data, undefined, 4), {
+  fs.writeFileSync(outConfigPath, JSON.stringify(data, undefined, 2), {
     encoding: "utf-8",
   })
 }
@@ -101,6 +101,13 @@ export function extract_bundle(
     const sharedClasses = packJson[File.SharedClasses]
     const sharedMasks = packJson[File.SharedMasks]
     const sections = packJson[File.Instances]
+
+    for (let i = 0; i < sharedUuids.length; i++) {
+      sharedUuids[i] = decodeUuid(sharedUuids[i])
+    }
+
+    writeJson(outBase, `${packId}.out`, packJson)
+
     // const unpackedPackJson = decodePack(packJson)
     for (let packIdx = 0; packIdx < packIds.length; packIdx++) {
       const uuid = packIds[packIdx]
@@ -181,9 +188,10 @@ export function extract_bundle(
             const redirectBundle = configJson.redirect[redirectIdx + 1]
             const rb = getBundleRoot(redirectBundle)
             atlasPath = findFile(`${rb}/native/`, atlasPureUuid, "*", true)
-            console.log(
-              `redirect to bundle ${redirectBundle}, sprite:${assetPath}, atlas:${atlasPath}`
-            )
+            console
+              .log
+              // `redirect to bundle ${redirectBundle}, sprite:${assetPath}, atlas:${atlasPath}`
+              ()
           } else if (!isNative) {
             continue
           } else {
@@ -194,12 +202,19 @@ export function extract_bundle(
               true
             )
           }
-          const tarPath = path.dirname(`${outBase}/${assetPath}`) + ".png"
-          // console.log(
-          //   `handle sprite:${assetPath}, atlas uuid:${atlasUuid}, isNative:${isNative}, redirect:${redirectIdx}, atlasPath:${atlasPath}, tarPath:${tarPath}`
-          // )
+          let tarPath
+          if (assetPath.endsWith("/spriteFrame")) {
+            tarPath = `${outBase}/${path.dirname(assetPath)}` + ".png"
+          } else {
+            tarPath = `${outBase}/${assetPath}` + ".png"
+          }
+          // if (uuid == "7543d1ce-da55-4177-af49-bea6dbf84771@02a15") {
+          //   console.log(
+          //     `handle sprite:${assetPath}, atlas uuid:${atlasUuid}, isNative:${isNative}, redirect:${redirectIdx}, atlasPath:${atlasPath}, tarPath:${tarPath}`
+          //   )
+          // }
           if (atlasPath == undefined) {
-            console.error(`atlas not found!, uuid:${uuid}`)
+            // console.error(`atlas not found!, uuid:${uuid}`)
             continue
           }
           ensureFileNameExists(tarPath)
